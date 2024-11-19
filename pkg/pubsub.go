@@ -10,12 +10,12 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill-amqp/v2/pkg/amqp"
+	"github.com/ThreeDotsLabs/watermill-amqp/v3/pkg/amqp"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
-	"github.com/ThreeDotsLabs/watermill-kafka/v2/pkg/kafka"
+	"github.com/ThreeDotsLabs/watermill-kafka/v3/pkg/kafka"
 	"github.com/ThreeDotsLabs/watermill-nats/v2/pkg/nats"
 	"github.com/ThreeDotsLabs/watermill-redisstream/pkg/redisstream"
-	"github.com/ThreeDotsLabs/watermill-sql/pkg/sql"
+	"github.com/ThreeDotsLabs/watermill-sql/v4/pkg/sql"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	driver "github.com/go-sql-driver/mysql"
@@ -268,6 +268,57 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			return pub, sub
 		},
 	},
+	"postgresql-queue": {
+		MessagesCount: 30000,
+		UUIDFunc:      watermill.NewUUID,
+		Constructor: func() (message.Publisher, message.Subscriber) {
+			dsn := "postgres://watermill:password@postgres:5432/watermill?sslmode=disable"
+			db, err := stdSQL.Open("postgres", dsn)
+			if err != nil {
+				panic(err)
+			}
+
+			err = db.Ping()
+			if err != nil {
+				panic(err)
+			}
+
+			pub, err := sql.NewPublisher(
+				db,
+				sql.PublisherConfig{
+					AutoInitializeSchema: true,
+					SchemaAdapter: sql.PostgreSQLQueueSchema{
+						GeneratePayloadType: func(topic string) string {
+							return "BYTEA"
+						},
+					},
+				},
+				logger,
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			sub, err := sql.NewSubscriber(
+				db,
+				sql.SubscriberConfig{
+					SchemaAdapter: sql.PostgreSQLQueueSchema{
+						GeneratePayloadType: func(topic string) string {
+							return "BYTEA"
+						},
+					},
+					OffsetsAdapter:   sql.PostgreSQLQueueOffsetsAdapter{},
+					InitializeSchema: true,
+				},
+				logger,
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			return pub, sub
+		},
+	},
 	"amqp": {
 		MessagesCount: 100000,
 		Constructor: func() (message.Publisher, message.Subscriber) {
@@ -385,9 +436,9 @@ type MySQLSchema struct {
 	sql.DefaultMySQLSchema
 }
 
-func (m MySQLSchema) SchemaInitializingQueries(topic string) []string {
+func (m MySQLSchema) SchemaInitializingQueries(params sql.SchemaInitializingQueriesParams) ([]sql.Query, error) {
 	createMessagesTable := strings.Join([]string{
-		"CREATE TABLE IF NOT EXISTS " + m.MessagesTable(topic) + " (",
+		"CREATE TABLE IF NOT EXISTS " + m.MessagesTable(params.Topic) + " (",
 		"`offset` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,",
 		"`uuid` BINARY(16) NOT NULL,",
 		"`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,",
@@ -396,23 +447,25 @@ func (m MySQLSchema) SchemaInitializingQueries(topic string) []string {
 		");",
 	}, "\n")
 
-	return []string{createMessagesTable}
+	return []sql.Query{{Query: createMessagesTable}}, nil
 }
 
 type PostgreSQLSchema struct {
 	sql.DefaultPostgreSQLSchema
 }
 
-func (p PostgreSQLSchema) SchemaInitializingQueries(topic string) []string {
-	createMessagesTable := strings.Join([]string{
-		`CREATE TABLE IF NOT EXISTS ` + p.MessagesTable(topic) + ` (`,
-		`"offset" SERIAL PRIMARY KEY,`,
-		`"uuid" UUID NOT NULL,`,
-		`"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,`,
-		`"payload" BYTEA DEFAULT NULL,`,
-		`"metadata" JSON DEFAULT NULL`,
-		`);`,
-	}, "\n")
+func (p PostgreSQLSchema) SchemaInitializingQueries(params sql.SchemaInitializingQueriesParams) ([]sql.Query, error) {
+	createMessagesTable := ` 
+		CREATE TABLE IF NOT EXISTS ` + p.MessagesTable(params.Topic) + ` (
+			"offset" BIGSERIAL,
+			"uuid" UUID NOT NULL,
+			"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			"payload" BYTEA DEFAULT NULL,
+			"metadata" JSON DEFAULT NULL,
+			"transaction_id" xid8 NOT NULL,
+			PRIMARY KEY ("transaction_id", "offset")
+		);
+	`
 
-	return []string{createMessagesTable}
+	return []sql.Query{{Query: createMessagesTable}}, nil
 }
