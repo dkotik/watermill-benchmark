@@ -18,9 +18,13 @@ import (
 	"github.com/ThreeDotsLabs/watermill-sql/v4/pkg/sql"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
+	"github.com/dkotik/watermillsqlite/wmsqlitemodernc"
+	"github.com/dkotik/watermillsqlite/wmsqlitezombiezen"
 	driver "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	_ "modernc.org/sqlite"
+	"zombiezen.com/go/sqlite"
 )
 
 const (
@@ -139,7 +143,6 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			return pub, sub
 		},
 	},
-
 	"googlecloud": {
 		Constructor: func() (message.Publisher, message.Subscriber) {
 			pub, err := googlecloud.NewPublisher(
@@ -383,6 +386,73 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			return publisher, subscriber
 		},
 	},
+	"sqlite-memory-modernc": {
+		Constructor: func() (message.Publisher, message.Subscriber) {
+			db, err := stdSQL.Open("sqlite", ":memory:journal_mode=WAL&busy_timeout=1000&cache=shared")
+			if err != nil {
+				panic(err)
+			}
+
+			pub, err := wmsqlitemodernc.NewPublisher(
+				db,
+				wmsqlitemodernc.PublisherOptions{
+					InitializeSchema: true,
+					Logger:           logger,
+				},
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			sub, err := wmsqlitemodernc.NewSubscriber(
+				db,
+				wmsqlitemodernc.SubscriberOptions{
+					// PollInterval: time.Millisecond * 20,
+					InitializeSchema: true,
+					Logger:           logger,
+				},
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			return pub, sub
+		},
+	},
+	"sqlite-memory-zombiezen": {
+		Constructor: func() (message.Publisher, message.Subscriber) {
+			connectionDSN := ":memory:journal_mode=WAL&busy_timeout=1000&cache=shared"
+			conn, err := sqlite.OpenConn(connectionDSN)
+			if err != nil {
+				panic(err)
+			}
+
+			pub, err := wmsqlitezombiezen.NewPublisher(
+				conn,
+				wmsqlitezombiezen.PublisherOptions{
+					InitializeSchema: true,
+					Logger:           logger,
+				},
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			sub, err := wmsqlitezombiezen.NewSubscriber(
+				connectionDSN,
+				wmsqlitezombiezen.SubscriberOptions{
+					// PollInterval: time.Millisecond * 20,
+					InitializeSchema: true,
+					Logger:           logger,
+				},
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			return pub, sub
+		},
+	},
 }
 
 func subscribersCount() int {
@@ -455,7 +525,7 @@ type PostgreSQLSchema struct {
 }
 
 func (p PostgreSQLSchema) SchemaInitializingQueries(params sql.SchemaInitializingQueriesParams) ([]sql.Query, error) {
-	createMessagesTable := ` 
+	createMessagesTable := `
 		CREATE TABLE IF NOT EXISTS ` + p.MessagesTable(params.Topic) + ` (
 			"offset" BIGSERIAL,
 			"uuid" UUID NOT NULL,
