@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/ThreeDotsLabs/watermill"
@@ -387,6 +388,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 		},
 	},
 	"sqlite-memory-modernc": {
+		MessagesCount: 100_000,
+		UUIDFunc:      watermill.NewUUID,
 		Constructor: func() (message.Publisher, message.Subscriber) {
 			db, err := stdSQL.Open("sqlite", ":memory:?journal_mode=WAL&busy_timeout=1000&cache=shared")
 			if err != nil {
@@ -408,6 +411,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitemodernc.NewSubscriber(
 				db,
 				wmsqlitemodernc.SubscriberOptions{
+					BatchSize:    700,
+					PollInterval: time.Millisecond * 10,
 					// PollInterval: time.Millisecond * 20,
 					InitializeSchema: true,
 					Logger:           logger,
@@ -421,6 +426,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 		},
 	},
 	"sqlite-memory-zombiezen": {
+		MessagesCount: 100_000,
+		UUIDFunc:      watermill.NewUUID,
 		Constructor: func() (message.Publisher, message.Subscriber) {
 			connectionDSN := "file:benchmark?mode=memory&cache=shared&journal_mode=WAL&busy_timeout=1000"
 			conn, err := sqlite.OpenConn(connectionDSN)
@@ -442,6 +449,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitezombiezen.NewSubscriber(
 				connectionDSN,
 				wmsqlitezombiezen.SubscriberOptions{
+					BatchSize:    700,
+					PollInterval: time.Millisecond * 10,
 					// PollInterval: time.Millisecond * 20,
 					InitializeSchema: true,
 					Logger:           logger,
@@ -455,6 +464,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 		},
 	},
 	"sqlite-file-modernc": {
+		MessagesCount: 100_000,
+		UUIDFunc:      watermill.NewUUID,
 		Constructor: func() (message.Publisher, message.Subscriber) {
 			file, err := os.CreateTemp("", "sqlite-file-modernc")
 			if err != nil {
@@ -482,6 +493,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitemodernc.NewSubscriber(
 				db,
 				wmsqlitemodernc.SubscriberOptions{
+					BatchSize:    700,
+					PollInterval: time.Millisecond * 10,
 					// PollInterval: time.Millisecond * 20,
 					InitializeSchema: true,
 					Logger:           logger,
@@ -495,6 +508,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 		},
 	},
 	"sqlite-file-zombiezen": {
+		MessagesCount: 100_000,
+		UUIDFunc:      watermill.NewUUID,
 		Constructor: func() (message.Publisher, message.Subscriber) {
 			file, err := os.CreateTemp("", "sqlite-file-zombiezen")
 			if err != nil {
@@ -522,6 +537,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitezombiezen.NewSubscriber(
 				connectionDSN,
 				wmsqlitezombiezen.SubscriberOptions{
+					BatchSize:    700,
+					PollInterval: time.Millisecond * 10,
 					// PollInterval: time.Millisecond * 20,
 					InitializeSchema: true,
 					Logger:           logger,
