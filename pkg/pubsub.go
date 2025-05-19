@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ThreeDotsLabs/watermill-sqlite/wmsqlitemodernc"
+	"github.com/ThreeDotsLabs/watermill-sqlite/wmsqlitezombiezen"
+
 	"github.com/Shopify/sarama"
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-amqp/v3/pkg/amqp"
@@ -19,8 +22,6 @@ import (
 	"github.com/ThreeDotsLabs/watermill-sql/v4/pkg/sql"
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
-	"github.com/dkotik/watermillsqlite/wmsqlitemodernc"
-	"github.com/dkotik/watermillsqlite/wmsqlitezombiezen"
 	driver "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
@@ -411,9 +412,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitemodernc.NewSubscriber(
 				db,
 				wmsqlitemodernc.SubscriberOptions{
-					BatchSize:    700,
-					PollInterval: time.Millisecond * 10,
-					// PollInterval: time.Millisecond * 20,
+					BatchSize:        700,
+					PollInterval:     time.Millisecond * 10,
 					InitializeSchema: true,
 					Logger:           logger,
 				},
@@ -449,9 +449,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitezombiezen.NewSubscriber(
 				connectionDSN,
 				wmsqlitezombiezen.SubscriberOptions{
-					BatchSize:    700,
-					PollInterval: time.Millisecond * 10,
-					// PollInterval: time.Millisecond * 20,
+					BatchSize:        700,
+					PollInterval:     time.Millisecond * 10,
 					InitializeSchema: true,
 					Logger:           logger,
 				},
@@ -493,9 +492,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitemodernc.NewSubscriber(
 				db,
 				wmsqlitemodernc.SubscriberOptions{
-					BatchSize:    700,
-					PollInterval: time.Millisecond * 10,
-					// PollInterval: time.Millisecond * 20,
+					BatchSize:        700,
+					PollInterval:     time.Millisecond * 10,
 					InitializeSchema: true,
 					Logger:           logger,
 				},
@@ -537,9 +535,8 @@ var pubSubDefinitions = map[string]PubSubDefinition{
 			sub, err := wmsqlitezombiezen.NewSubscriber(
 				connectionDSN,
 				wmsqlitezombiezen.SubscriberOptions{
-					BatchSize:    700,
-					PollInterval: time.Millisecond * 10,
-					// PollInterval: time.Millisecond * 20,
+					BatchSize:        700,
+					PollInterval:     time.Millisecond * 10,
 					InitializeSchema: true,
 					Logger:           logger,
 				},
